@@ -1,4 +1,3 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -107,6 +106,10 @@
   <div id="product-modal" class="modal-overlay">…</div>
 
   <!-- Scripts -->
+  <script>
+    // Point to your local Worker during dev
+    window.API_BASE = 'http://localhost:8787';
+  </script>
   <script type="module" src="./js/admin.js"></script>
   <script>
     fetch('./version.json')
