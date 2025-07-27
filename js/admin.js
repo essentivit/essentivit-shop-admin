@@ -3,19 +3,19 @@ console.log("admin.js loaded");
 
 import { openModal, closeModal, initModalDelegation } from './modal.js';
 import { showToast } from './utils.js';
-import { apiFetch } from './api.js'; // ✅ added import
+import { apiFetch } from './api.js'; // ensure this is imported
 
 const API_BASE = window.API_BASE || window.location.origin;
 let isConnected = false;
 
-// Initialise on page load
+// Initialise
 document.addEventListener('DOMContentLoaded', () => {
   initModalDelegation();
   initTabs();
   initConnect();
+  initProductForm();
 });
 
-// ---------- Connection Handling ----------
 function initConnect() {
   const btn = document.getElementById('connect-btn');
   btn.addEventListener('click', async () => {
@@ -23,11 +23,10 @@ function initConnect() {
       setConnected(false);
       return;
     }
-
     btn.disabled = true;
     document.getElementById('connect-loading').style.display = '';
     try {
-      const res = await apiFetch('/api/products'); // ✅ use secure API call
+      const res = await apiFetch('/api/products');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setConnected(true);
       showToast('Connected to API');
@@ -65,35 +64,29 @@ function setConnected(connected) {
   }
 }
 
-// ---------- Tab switching ----------
 function initTabs() {
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
       if (!isConnected) return;
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      const name = tab.dataset.tab;
       document.querySelectorAll('.tab-content').forEach(sec => sec.classList.remove('active'));
-      document.getElementById(`${name}-tab`).classList.add('active');
+      document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
     });
   });
 }
 
-// ---------- Products ----------
-async function initProductSection() {
-  document.getElementById('add-product-btn').addEventListener('click', () => {
-    showToast('Add product not implemented yet', 'warning');
-  });
-  document.getElementById('empty-add-product').addEventListener('click', () => {
-    showToast('Add product not implemented yet', 'warning');
-  });
+// ---------- Product CRUD ----------
 
-  await fetchAndRenderProducts();
+function initProductSection() {
+  document.getElementById('add-product-btn').addEventListener('click', openCreateModal);
+  document.getElementById('empty-add-product').addEventListener('click', openCreateModal);
+  fetchAndRenderProducts();
 }
 
 async function fetchAndRenderProducts() {
   try {
-    const res = await apiFetch('/api/products'); // ✅ secure call
+    const res = await apiFetch('/api/products');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const { products } = await res.json();
 
@@ -123,6 +116,9 @@ async function fetchAndRenderProducts() {
         </td>
       `;
       tbody.appendChild(tr);
+
+      tr.querySelector('.edit-btn').addEventListener('click', () => openEditModal(p));
+      tr.querySelector('.delete-btn').addEventListener('click', () => handleDelete(p.id));
     });
   } catch (err) {
     console.error(err);
@@ -135,6 +131,78 @@ function clearProductSection() {
   document.getElementById('products-table').style.display = 'none';
   document.getElementById('products-empty').style.display = 'block';
 }
+
+// Modal & form handling
+
+function initProductForm() {
+  const form = document.getElementById('product-form');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const mode = form.dataset.mode;
+    const idEl = document.getElementById('product-id');
+    const id = idEl.value.trim();
+    const name = document.getElementById('product-name').value.trim();
+    const description = document.getElementById('product-description').value.trim();
+    const price = parseFloat(document.getElementById('product-price').value) * 100;
+    const image = document.getElementById('product-image').value.trim();
+
+    try {
+      const res = await apiFetch('/api/products', {
+        method: 'POST',
+        body: JSON.stringify({ id, name, description, price, image }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      closeModal('#product-modal');
+      fetchAndRenderProducts();
+      showToast(`Product ${mode === 'create' ? 'created' : 'updated'} successfully`);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save product: ' + err.message, 'error');
+    }
+  });
+}
+
+function openCreateModal() {
+  const form = document.getElementById('product-form');
+  form.dataset.mode = 'create';
+  form.reset();
+  document.getElementById('product-id').disabled = false;
+  document.getElementById('product-modal-title').textContent = 'Add Product';
+  openModal('#product-modal');
+}
+
+function openEditModal(p) {
+  const form = document.getElementById('product-form');
+  form.dataset.mode = 'edit';
+  document.getElementById('product-id').value = p.id;
+  document.getElementById('product-id').disabled = true;
+  document.getElementById('product-name').value = p.name;
+  document.getElementById('product-description').value = p.description;
+  document.getElementById('product-price').value = (p.price / 100).toFixed(2);
+  document.getElementById('product-image').value = p.image;
+  document.getElementById('product-modal-title').textContent = 'Edit Product';
+  openModal('#product-modal');
+}
+
+async function handleDelete(id) {
+  if (!confirm(`Delete product ${id}?`)) return;
+  try {
+    const res = await apiFetch(`/api/products?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    showToast(`Product ${id} deleted`);
+    fetchAndRenderProducts();
+  } catch (err) {
+    console.error(err);
+    showToast('Delete failed: ' + err.message, 'error');
+  }
+}
+
+// (inventory code remains unchanged…)
 
 // ---------- Inventory ----------
 async function initInventorySection() {
