@@ -5,7 +5,6 @@ import { openModal, closeModal, initModalDelegation } from './modal.js';
 import { showToast } from './utils.js';
 import { apiFetch } from './api.js';
 
-const API_BASE = window.API_BASE || window.location.origin;
 let isConnected = false;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -13,7 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   initConnect();
   initProductForm();
-  // Inventory will initialise after connecting
 });
 
 // ---------- Connection Handling ----------
@@ -43,10 +41,10 @@ function initConnect() {
 
 function setConnected(connected) {
   isConnected = connected;
-  const statusDot = document.getElementById('status-dot');
-  const statusText = document.getElementById('status-text');
-  const connectText = document.getElementById('connect-text');
-  const tokenInput = document.getElementById('bearer-token');
+  const statusDot    = document.getElementById('status-dot');
+  const statusText   = document.getElementById('status-text');
+  const connectText  = document.getElementById('connect-text');
+  const tokenInput   = document.getElementById('bearer-token');
 
   if (connected) {
     statusDot.classList.add('connected');
@@ -54,14 +52,12 @@ function setConnected(connected) {
     connectText.textContent = 'Disconnect';
     tokenInput.disabled = true;
     initProductSection();
-    initInventorySection();
   } else {
     statusDot.classList.remove('connected');
     statusText.textContent = 'Disconnected';
     connectText.textContent = 'Connect';
     tokenInput.disabled = false;
     clearProductSection();
-    clearInventorySection();
   }
 }
 
@@ -137,22 +133,43 @@ function initProductForm() {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const mode = form.dataset.mode;
-    const idEl = document.getElementById('product-id');
-    const id = idEl.value.trim();
+    const id   = document.getElementById('product-id').value.trim();
     const name = document.getElementById('product-name').value.trim();
-    const description = document.getElementById('product-description').value.trim();
+    const desc = document.getElementById('product-description').value.trim();
     const price = parseFloat(document.getElementById('product-price').value) * 100;
     const image = document.getElementById('product-image').value.trim();
 
     try {
+      // Save product
       const res = await apiFetch('/api/products', {
         method: 'POST',
-        body: JSON.stringify({ id, name, description, price, image }),
+        body: JSON.stringify({ id, name, description: desc, price, image }),
       });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || `HTTP ${res.status}`);
       }
+
+      // If stock-adjust was set, submit that
+      const delta = parseInt(document.getElementById('product-stock-adjust').value, 10);
+      if (!isNaN(delta) && delta !== 0) {
+        try {
+          const stockRes = await apiFetch(`/api/inventory?sku=${encodeURIComponent(id)}`, {
+            method: 'POST',
+            body: JSON.stringify({ delta }),
+          });
+          if (!stockRes.ok) {
+            const err2 = await stockRes.json();
+            throw new Error(err2.error || `HTTP ${stockRes.status}`);
+          }
+          const { stock: newStock } = await stockRes.json();
+          showToast(`Stock updated to ${newStock}`);
+        } catch (stockErr) {
+          console.error(stockErr);
+          showToast('Failed to update stock: ' + stockErr.message, 'error');
+        }
+      }
+
       closeModal('#product-modal');
       fetchAndRenderProducts();
       showToast(`Product ${mode === 'create' ? 'created' : 'updated'} successfully`);
@@ -169,19 +186,23 @@ function openCreateModal() {
   form.reset();
   document.getElementById('product-id').disabled = false;
   document.getElementById('product-modal-title').textContent = 'Add Product';
+  document.getElementById('product-stock').value = '';
+  document.getElementById('product-stock-adjust').value = '';
   openModal('#product-modal');
 }
 
 function openEditModal(p) {
   const form = document.getElementById('product-form');
   form.dataset.mode = 'edit';
-  document.getElementById('product-id').value = p.id;
-  document.getElementById('product-id').disabled = true;
-  document.getElementById('product-name').value = p.name;
+  document.getElementById('product-id').value          = p.id;
+  document.getElementById('product-id').disabled       = true;
+  document.getElementById('product-name').value        = p.name;
   document.getElementById('product-description').value = p.description;
-  document.getElementById('product-price').value = (p.price / 100).toFixed(2);
-  document.getElementById('product-image').value = p.image;
+  document.getElementById('product-price').value       = (p.price / 100).toFixed(2);
+  document.getElementById('product-image').value       = p.image;
   document.getElementById('product-modal-title').textContent = 'Edit Product';
+  // load current stock
+  loadStock(p.id);
   openModal('#product-modal');
 }
 
@@ -200,91 +221,17 @@ async function handleDelete(id) {
   }
 }
 
-// ---------- Inventory CRUD ----------
-function initInventorySection() {
-  const skuSelect = document.getElementById('inventory-sku-select');
-  const adjustBtn = document.getElementById('inventory-adjust-btn');
-
-  skuSelect.addEventListener('change', onSKUChange);
-  adjustBtn.addEventListener('click', adjustStock);
-
-  populateSKUOptions();
-}
-
-async function populateSKUOptions() {
-  try {
-    const res = await apiFetch('/api/products');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const { products } = await res.json();
-    const skuSelect = document.getElementById('inventory-sku-select');
-    skuSelect.innerHTML = `<option value="">Select product</option>`;
-    products.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = `${p.id} — ${p.name}`;
-      skuSelect.appendChild(opt);
-    });
-  } catch (err) {
-    console.error(err);
-    showToast('Failed to load SKUs: ' + err.message, 'error');
-  }
-}
-
-async function onSKUChange() {
-  if (!isConnected) return;
-  const sku = this.value;
-  const stockEl = document.getElementById('inventory-stock');
-  const adjustBtn = document.getElementById('inventory-adjust-btn');
-
-  if (!sku) {
-    stockEl.textContent = '—';
-    adjustBtn.disabled = true;
-    return;
-  }
-
+// ---------- Stock Helpers ----------
+async function loadStock(sku) {
   try {
     const res = await apiFetch(`/api/inventory?sku=${encodeURIComponent(sku)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const { stock } = await res.json();
-    stockEl.textContent = stock;
-    adjustBtn.disabled = false;
-    document.getElementById('inventory-delta').value = '';
+    document.getElementById('product-stock').value = stock;
   } catch (err) {
     console.error(err);
     showToast('Failed to fetch stock: ' + err.message, 'error');
+    document.getElementById('product-stock').value = '';
   }
-}
-
-async function adjustStock() {
-  if (!isConnected) return;
-  const sku = document.getElementById('inventory-sku-select').value;
-  const delta = parseInt(document.getElementById('inventory-delta').value, 10);
-  if (!sku || isNaN(delta)) {
-    return showToast('Select a product and enter a valid number', 'error');
-  }
-
-  try {
-    const res = await apiFetch(`/api/inventory?sku=${encodeURIComponent(sku)}`, {
-      method: 'POST',
-      body: JSON.stringify({ delta }),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || `HTTP ${res.status}`);
-    }
-    const { stock } = await res.json();
-    document.getElementById('inventory-stock').textContent = stock;
-    document.getElementById('inventory-delta').value = '';
-    showToast('Stock updated to ' + stock);
-  } catch (err) {
-    console.error(err);
-    showToast('Could not update stock: ' + err.message, 'error');
-  }
-}
-
-function clearInventorySection() {
-  document.getElementById('inventory-sku-select').innerHTML = `<option value="">Select product</option>`;
-  document.getElementById('inventory-stock').textContent = '—';
-  document.getElementById('inventory-delta').value = '';
-  document.getElementById('inventory-adjust-btn').disabled = true;
+  document.getElementById('product-stock-adjust').value = '';
 }
