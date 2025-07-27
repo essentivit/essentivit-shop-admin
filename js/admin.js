@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   initConnect();
   initProductForm();
-  initInventorySection();
+  // Inventory will initialise after connecting
 });
 
 // ---------- Connection Handling ----------
