@@ -38,8 +38,9 @@
     <div class="container">
       <!-- Tabs -->
       <div class="tabs">
-        <button class="tab active" data-tab="products">📦 Products</button>
-        <button class="tab"        data-tab="inventory">📊 Inventory</button>
+        <button class="tab active"      data-tab="products">📦 Products</button>
+        <button class="tab"             data-tab="orders">📬 Orders</button>
+        <button class="tab"             data-tab="customers">👤 Customers</button>
       </div>
 
       <!-- Products Tab -->
@@ -72,30 +73,26 @@
         </div>
       </section>
 
-      <!-- Inventory Tab -->
-      <section id="inventory-tab" class="tab-content">
+      <!-- Orders Tab (Placeholder) -->
+      <section id="orders-tab" class="tab-content">
         <div class="card">
           <div class="card-header">
-            <h2 class="card-title">Inventory</h2>
+            <h2 class="card-title">Orders</h2>
           </div>
           <div class="card-content">
-            <div class="form-row">
-              <label for="inventory-sku-select">Product SKU:</label>
-              <select id="inventory-sku-select" class="input">
-                <option value="">Select product</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <label>Current Stock:</label>
-              <span id="inventory-stock">—</span>
-            </div>
-            <div class="form-row">
-              <label for="inventory-delta">Adjust by:</label>
-              <input id="inventory-delta" type="number" class="input" placeholder="e.g. 5 or -3">
-            </div>
-            <button id="inventory-adjust-btn" class="btn btn-primary" disabled>
-              Update Stock
-            </button>
+            <p>Order viewer coming soon — sync with Stripe orders via webhook.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Customers Tab (Placeholder) -->
+      <section id="customers-tab" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Customers</h2>
+          </div>
+          <div class="card-content">
+            <p>Customer list will display Stripe Customer objects soon.</p>
           </div>
         </div>
       </section>
@@ -103,40 +100,48 @@
   </main>
 
   <!-- Modals -->
-<div id="product-modal" class="modal-overlay">
-  <div class="modal">
-    <header class="modal-header">
-      <h2 id="product-modal-title">Add Product</h2>
-      <button class="btn-close" aria-label="Close">&times;</button>
-    </header>
-    <form id="product-form" class="modal-body">
-      <div class="form-row">
-        <label for="product-id">SKU (id)</label>
-        <input id="product-id" name="id" type="text" required class="input" />
-      </div>
-      <div class="form-row">
-        <label for="product-name">Name</label>
-        <input id="product-name" name="name" type="text" required class="input" />
-      </div>
-      <div class="form-row">
-        <label for="product-description">Description</label>
-        <textarea id="product-description" name="description" required class="input"></textarea>
-      </div>
-      <div class="form-row">
-        <label for="product-price">Price (€)</label>
-        <input id="product-price" name="price" type="number" step="0.01" required class="input" />
-      </div>
-      <div class="form-row">
-        <label for="product-image">Image URL</label>
-        <input id="product-image" name="image" type="text" required class="input" />
-      </div>
-      <footer class="modal-footer">
-        <button type="submit" class="btn btn-primary">Save</button>
-        <button type="button" class="btn btn-secondary">Cancel</button>
-      </footer>
-    </form>
+  <div id="product-modal" class="modal-overlay">
+    <div class="modal">
+      <header class="modal-header">
+        <h2 id="product-modal-title">Add Product</h2>
+        <button class="btn-close" aria-label="Close">&times;</button>
+      </header>
+      <form id="product-form" class="modal-body">
+        <div class="form-row">
+          <label for="product-id">SKU (id)</label>
+          <input id="product-id" name="id" type="text" required class="input" />
+        </div>
+        <div class="form-row">
+          <label for="product-name">Name</label>
+          <input id="product-name" name="name" type="text" required class="input" />
+        </div>
+        <div class="form-row">
+          <label for="product-description">Description</label>
+          <textarea id="product-description" name="description" required class="input"></textarea>
+        </div>
+        <div class="form-row">
+          <label for="product-price">Price (€)</label>
+          <input id="product-price" name="price" type="number" step="0.01" required class="input" />
+        </div>
+        <div class="form-row">
+          <label for="product-image">Image URL</label>
+          <input id="product-image" name="image" type="text" required class="input" />
+        </div>
+        <div class="form-row">
+          <label for="product-stock">Current Stock</label>
+          <input id="product-stock" name="stock" type="number" readonly class="input" />
+        </div>
+        <div class="form-row">
+          <label for="product-stock-adjust">Adjust Stock</label>
+          <input id="product-stock-adjust" name="stockAdjust" type="number" class="input" placeholder="e.g. 5 or -3" />
+        </div>
+        <footer class="modal-footer">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="btn btn-secondary">Cancel</button>
+        </footer>
+      </form>
+    </div>
   </div>
-</div>
 
   <!-- Scripts -->
   <script>
