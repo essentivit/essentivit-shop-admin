@@ -1,9 +1,10 @@
 // js/admin.js
+console.log("admin.js loaded");
+
 import { openModal, closeModal, initModalDelegation } from './modal.js';
 import { showToast } from './utils.js';
+import { apiFetch } from './api.js'; // ✅ added import
 
-// Use current origin for API base
-// Use API base URL from global (for local dev), fallback to current origin
 const API_BASE = window.API_BASE || window.location.origin;
 let isConnected = false;
 
@@ -19,15 +20,14 @@ function initConnect() {
   const btn = document.getElementById('connect-btn');
   btn.addEventListener('click', async () => {
     if (isConnected) {
-      // Disconnect
       setConnected(false);
       return;
     }
-    // Attempt to connect
+
     btn.disabled = true;
     document.getElementById('connect-loading').style.display = '';
     try {
-      const res = await fetch(`${API_BASE}/api/products`);
+      const res = await apiFetch('/api/products'); // ✅ use secure API call
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setConnected(true);
       showToast('Connected to API');
@@ -53,7 +53,6 @@ function setConnected(connected) {
     statusText.textContent = 'Connected';
     connectText.textContent = 'Disconnect';
     tokenInput.disabled = true;
-    // Load data
     initProductSection();
     initInventorySection();
   } else {
@@ -61,7 +60,6 @@ function setConnected(connected) {
     statusText.textContent = 'Disconnected';
     connectText.textContent = 'Connect';
     tokenInput.disabled = false;
-    // Clear UI
     clearProductSection();
     clearInventorySection();
   }
@@ -71,7 +69,7 @@ function setConnected(connected) {
 function initTabs() {
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      if (!isConnected) return; // only allow when connected
+      if (!isConnected) return;
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       const name = tab.dataset.tab;
@@ -84,7 +82,6 @@ function initTabs() {
 // ---------- Products ----------
 async function initProductSection() {
   document.getElementById('add-product-btn').addEventListener('click', () => {
-    // TODO: implement add-product modal
     showToast('Add product not implemented yet', 'warning');
   });
   document.getElementById('empty-add-product').addEventListener('click', () => {
@@ -96,7 +93,7 @@ async function initProductSection() {
 
 async function fetchAndRenderProducts() {
   try {
-    const res = await fetch(`${API_BASE}/api/products`);
+    const res = await apiFetch('/api/products'); // ✅ secure call
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const { products } = await res.json();
 
@@ -153,7 +150,7 @@ async function initInventorySection() {
 
 async function populateSKUOptions() {
   try {
-    const res = await fetch(`${API_BASE}/api/products`);
+    const res = await apiFetch('/api/products'); // ✅ secure call
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const { products } = await res.json();
 
@@ -184,7 +181,7 @@ async function onSKUChange() {
   }
 
   try {
-    const res = await fetch(`${API_BASE}/api/inventory?sku=${encodeURIComponent(sku)}`);
+    const res = await apiFetch(`/api/inventory?sku=${encodeURIComponent(sku)}`); // ✅ secure call
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const { stock } = await res.json();
     stockEl.textContent = stock;
@@ -203,7 +200,7 @@ async function adjustStock() {
   if (!sku || isNaN(delta)) return showToast('Select a product and enter a valid number', 'error');
 
   try {
-    const res = await fetch(`${API_BASE}/api/inventory?sku=${encodeURIComponent(sku)}`, {
+    const res = await apiFetch(`/api/inventory?sku=${encodeURIComponent(sku)}`, { // ✅ secure call
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ delta }),
